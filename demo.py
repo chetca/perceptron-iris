@@ -1,128 +1,69 @@
 import numpy as np
-import time
+import pandas as pd
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.utils import np_utils
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.cross_validation import train_test_split
 
+# Инициализация рандомки из пакета numpy
+seed = 101
+np.random.seed(seed)
 
-# формирование сети 4-4-3 для многослойного персептрона
-n_hidden = 4
-n_in = 4
-n_out = 3
+# Грузим датасет используя пакет pandas
+dataframe = pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data', header=None)
+dataset = dataframe.values
 
-learning_rate = 0.01
-momentum = 0.9
+# Делим данные на две части – на целевую переменную Y и на данные, от которых она зависит X
+X = dataset[:, 0:4].astype(float)
+Y = dataset[:, 4]
 
-np.random.seed(0)
+# Iris-setosa кодируется как класс 0
+# Iris-versicolor – класс 1 
+# Iris-virginica как класс 2 
+encoder = LabelEncoder()
+encoder.fit(Y)
+encoded_Y = encoder.transform(Y)
 
-def sigmoid(x):
-    return 1.0/(1.0 + np.exp(-x))
+# Затем применим унитарное кодирование к полученным категориями. 
+# Iris-setosa станет [1, 0, 0],  
+# Iris-versicolor – [0, 1, 0] и т.д. 
+dummy_y = np_utils.to_categorical(encoded_Y)
 
-def train(x, t, V, W, bv, bw):
+# Отделяем часть данных для тестового подмножества для оценки качества работы нашей сети
+# используя метод train_test_split
+# В качестве параметров укажем размер тестового сета – 25% 
+# и передадим наш инициализатор случайных значений
+X_train, X_test, Y_train, Y_test = train_test_split(X, dummy_y, test_size=.25, random_state=seed)
 
-    # счетчик ввода с весом матрицы скрытого слоя 1x4 - 4x4 дает матрицу 1x4
-    A = np.dot(x, V) + bv
-    Z = sigmoid(A)
+# Описываем персептрон
+# Используются методы из библиотека Keras
+# Сеть следующей архитектуры: 
+# 4 входа под каждый признак, 
+# 4 нейрона в скрытом слое, 
+# и три выхода — по количеству классов.
+# функция активации - сигмоида
+def my_model():
+    model = Sequential()
+    model.add(Dense(4, input_dim=4, init='normal', activation='relu'))
+    #model.add(Dropout(0.2))
+    model.add(Dense(3, init='normal', activation='sigmoid'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
 
-   
-    # рассчитатываем скрытый слой с весом матрицы выходного слоя 1x4 - 4x3 
-    # для генерации матрицы 1x3
-    B = np.dot(Z, W) + bw
-    Y = sigmoid(B)
-    
+# Установим количество эпох обучения равное 200 
+# и количество примеров для одновременного обучения равное 7
+model = my_model()
+model.fit(X_train, Y_train, batch_size=7, nb_epoch=200, verbose=1)
 
-    # метод обратоного распространения ошибок для предыдущего слоя
-    # ошибка на выходном уровне
-    Ew = Y - t
-    # ошибка в скрытом слое A является матрицей 4.1, умноженной на W = 4x3 Ew = 3.1
-    # print "x"
-    # print sigmoid(A)
-    # print np.shape([4,5,6])
-    # print "x"
-    Ev = sigmoid(A) * np.dot(W, Ew)
+# Оценим качество нашей модели на тестовом подмножестве
+# Будем использовать метрику площади под ROC-кривой
+predictions = model.predict_proba(X_test)
+print('Accuracy: {}'.format(roc_auc_score(y_true=Y_test, y_score=predictions)))
 
-    # ошибка для выходного слоя в точке внешнего с результатом скрытого слоя
-    print("Z")
-    print(Z)
-    np.savetxt('out.txt', Z, delimiter=',')
-    print("Z")
-    print("Ew")
-    print(Ew)
-    np.savetxt('out.txt', Ew, delimiter=',')
-    print("Ew")
-    dW = np.outer(Z, Ew)
-    # ошибка для скрытого слоя в точке внешнего с результатом входного слоя
-    dV = np.outer(x, Ev)
-
-    # Дополнительная формула потери перекрестной энтропии не использовалась в классе aia bu
-    # loss = -np.mean ( t * np.log(Y) + (1 - t) * np.log(1 - Y) )
-
-    # евклидово расстояние между результатами и фактами E (y, y ') из википедии
-    loss =0.5*(np.sum(np.power(Y-t,2)))
-
-
-    return  loss, (dV, dW, Ev, Ew)
-
-def predict(x, V, W, bv, bw):
-    A = np.dot(x, V) + bv
-    B = np.dot(np.tanh(A), W) + bw
-    hasil = (sigmoid(B) > 0.5).astype(int)
-    if hasil[0]==1:
-        return 'Iris-setosa'
-    elif hasil[1]==1:
-        return 'Iris-versicolor'
-    elif hasil[2]==1:
-        return 'Iris-virginica'
-    else:
-        return 'Unknown'
-
-# Настройка начальных параметров персептрона
-# вес скрытых слоёв
-V = np.random.normal(scale=0.1, size=(n_in, n_hidden))
-# вес выходных слоёв
-W = np.random.normal(scale=0.1, size=(n_hidden, n_out))
-
-print(V)
-print(W)
-
-np.savetxt('out.txt', V, delimiter=',')
-np.savetxt('out.txt', W, delimiter=',')
-
-# смещение
-bv = np.zeros(n_hidden)
-bw = np.zeros(n_out)
-
-params = [V,W,bv,bw]
-
-# разделение 120 итераций обучения на 30 тестирований
-datatraining = np.loadtxt('iris.data-feature.txt',delimiter=',')
-datalabel = np.loadtxt('iris.data-feature-label.txt',delimiter=',')
-
-# вывод данных по тренировке сети
-# Собственно сама тренировка
-for epoch in range(10000):
-    err = []
-    upd = [0]*len(params)
-
-    t0 = time.clock()
-    for i in range(datatraining.shape[0]):
-        loss, grad = train(datatraining[i], datalabel[i], *params)
-
-        for j in range(len(params)):
-            params[j] -= upd[j]
-
-        for j in range(len(params)):
-            upd[j] = learning_rate * grad[j]
-
-        err.append( loss )
-
-
-    
-    print("Epoch: %d, Loss: %.8f, Time: %.4fs" % (
-                epoch, np.mean( err ), time.clock()-t0 ))
-
-# Результаты модели
-print("FORECASTING DATA")
-# print datatest
-# print datalabeltest
-# print params
-for i in range(datatest.shape[0]):
-    print(predict(datatest[i], *params))
-
+# Полезные ссылки: 
+# (Ирисы Фишера) https://ru.wikipedia.org/wiki/%D0%98%D1%80%D0%B8%D1%81%D1%8B_%D0%A4%D0%B8%D1%88%D0%B5%D1%80%D0%B0
+# (Унитарный код) https://ru.wikipedia.org/wiki/%D0%A3%D0%BD%D0%B8%D1%82%D0%B0%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D0%BE%D0%B4
+# (ROC-кривая) https://ru.wikipedia.org/wiki/ROC-%D0%BA%D1%80%D0%B8%D0%B2%D0%B0%D1%8F
+# (Keras documentation) https://keras.io/
