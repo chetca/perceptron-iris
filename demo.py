@@ -46,7 +46,7 @@ X_train, X_test, Y_train, Y_test = train_test_split(X, dummy_y, test_size=.25, r
 # функция активации - сигмоида
 def my_model():
     model = Sequential()
-    model.add(Dense(4, input_dim=4, init='normal', activation='relu'))
+    model.add(Dense(4, input_dim=4, init='normal', activation='sigmoid'))
     #model.add(Dropout(0.2))
     model.add(Dense(3, init='normal', activation='sigmoid'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
