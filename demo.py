@@ -67,3 +67,4 @@ print('Accuracy: {}'.format(roc_auc_score(y_true=Y_test, y_score=predictions)))
 # (Унитарный код) https://ru.wikipedia.org/wiki/%D0%A3%D0%BD%D0%B8%D1%82%D0%B0%D1%80%D0%BD%D1%8B%D0%B9_%D0%BA%D0%BE%D0%B4
 # (ROC-кривая) https://ru.wikipedia.org/wiki/ROC-%D0%BA%D1%80%D0%B8%D0%B2%D0%B0%D1%8F
 # (Keras documentation) https://keras.io/
+# (Данные) https://archive.ics.uci.edu/ml/datasets/iris
